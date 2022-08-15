@@ -1,0 +1,261 @@
+#load airline data set from kaggle
+df <- read.csv(file.choose(), header= T)
+df_1 <- df
+#replacing variables of Dayofweek
+df['DayOfWeek'][df['DayOfWeek']==1] <- "Monday"
+df['DayOfWeek'][df['DayOfWeek']==2] <- "Tuesday"
+df['DayOfWeek'][df['DayOfWeek']==3] <- "Wednesday"
+df['DayOfWeek'][df['DayOfWeek']==4] <- "Thursday"
+df['DayOfWeek'][df['DayOfWeek']==5] <- "Friday"
+df['DayOfWeek'][df['DayOfWeek']==6] <- "Weekend"
+df['DayOfWeek'][df['DayOfWeek']==7] <- "Weekend"
+
+head(df)
+dim(df)
+
+library(dplyr)
+glimpse(df)
+
+summary(df)
+
+#total number of ailines
+airlineNo <- unique(df$Airline)
+glimpse(airlineNo)
+
+#Exploratory Data Analysis part 1
+
+#Checking airlines with most and least delay
+library(dplyr)
+df_dt <- df[df$Delay==1,]
+df_t <- df_dt %>% count(df_dt$Airline ,df_dt$Delay)
+barplot(height = df_t$n, 
+        main = "Delay count", 
+        xlab = "Airline", 
+        ylab = "No of Delays", 
+        names.arg = df_t$`df_dt$Airline`,
+        border = "dark blue", col = "darkviolet")
+
+df_t[which.max(df_t$n),][1,1]
+sprintf("The airline with the most delay is Southwest: %s", df_t[which.max(df_t$n),][1,1])
+
+#Checking Airport From with most and least delay
+df_af <- df_dt %>% count(df_dt$AirportFrom ,df_dt$Delay)
+barplot(height = df_af$n, 
+        main = "Delay count", 
+        xlab = "Airport From", 
+        ylab = "No of Delays", 
+        names.arg = df_af$`df_dt$AirportFrom`,  col = "green")
+
+df_af[which.max(df_af$n),][1,1]
+df_af <- df_af[order(-df_af$n),]
+sprintf("%s (Hartsfield-Jakson Atalanta) and %s (O'Hare International Airport Chicago) has the most delays for arriving airport", df_af[1,1], df_af[2,1])
+
+
+#Checking Airport From with most and least delay
+df_at <- df_dt %>% count(df_dt$AirportTo ,df_dt$Delay)
+barplot(height = df_at$n, 
+        main = "Delay count", 
+        xlab = "Airport To", 
+        ylab = "No of Delays", 
+        names.arg = df_at$`df_dt$AirportTo`,  col = "orange")
+df_at[which.max(df_at$n),][1,1]
+df_at <- df_at[order(-df_at$n),]
+sprintf("%s (Hartsfield-Jakson Atalanta) and %s (O'Hare International Airport Chicago) has the most delays for arriving airport", df_at[1,1], df_at[2,1])
+
+#boxplot of Time
+boxplot(df$Time, xlab="Boxplot", ylab="Time", main="Boxplot of Time", col = "darkorange3")
+#boxplot of length
+boxplot(df$Length, xlab="Boxplot", ylab="Length Of Flight", main="Boxplot of Length of Flight", col = "darkseagreen")
+
+
+#Narrodown dataset based on over 5000 flight from departure airport
+airports<-c("ATL","ORD","dfW","DEN","LAX","IAH","PHX","DTW","MCO","SLC","MSP","EWR","ORD","JFK","SFO","CLT","LAS","BOS","MIA","MDW","DCA","PHL","BWI","LGA")
+df<-subset(df,AirportFrom %in% airports & AirportTo %in% airports )
+
+dim(df)
+
+#replacing variables of Delay
+df['Delay'][df['Delay']==0] <- "OnTime"
+df['Delay'][df['Delay']==1] <- "Delayed"
+
+
+#boxplot of length
+boxplot(df$Length, xlab="Boxplot", ylab="Length Of Flight", main="Boxplot after outlier removal", col = "brown")
+
+
+library(ggplot2)
+#normalized bar graph of airline with delay overlay
+ggplot(df,aes(Airline))+geom_bar(aes(fill=Delay),position="fill")+coord_flip()
+
+#normalized bar graph of DayOfWeek with delay overlay
+ggplot(df,aes(DayOfWeek))+geom_bar(aes(fill=Delay),position="fill")+coord_flip()
+
+#normalized bar graph of AirportTo with delay overlay
+ggplot(df,aes(AirportTo))+geom_bar(aes(fill=Delay),position="fill")+coord_flip()
+
+#normalized bar graph of AirlineFrom with delay overlay
+ggplot(df,aes(AirportFrom))+geom_bar(aes(fill=Delay),position="fill")+coord_flip()
+
+#Narrodown dataset based on over 5000 flight from departure airport
+airports<-c("ATL","ORD","DFW","DEN","LAX","IAH","PHX","DTW","MCO","SLC","MSP","EWR","ORD","JFK","SFO","CLT","LAS","BOS","MIA","MDW","DCA","PHL","BWI","LGA")
+df<-subset(df,AirportFrom %in% airports & AirportTo %in% airports )
+
+dim(df)
+
+#split data set to train and test(75/25)
+set.seed(100)
+n <- dim(df) [1]
+train_ind <- runif(n) < 0.75
+df_train <- df[ train_ind, ]
+df_test <- df[ !train_ind, ]
+
+dim(df_test)
+
+#contingency table airline in train data set
+cont_tb <- table(df_train$Delay,df_train$Airline)
+cont_tb_col <- addmargins(A=cont_tb,FUN=list(total=sum),quiet=TRUE)
+cont_tb_col
+
+round(prop.table(cont_tb,margin=2)*100,1)
+
+cont_tb_row <- table(df_train$Airline,df_train$Delay)
+cont_tb_row_col <- addmargins(A=cont_tb,FUN=list(total=sum),quiet=TRUE)
+cont_tb_row_col
+
+round(prop.table(cont_tb_row,margin=2)*100,1)
+
+
+#histogram of Time
+
+ggplot(df_train,aes(Time))+geom_bar()
+
+#CART
+
+library(rpart); library(rpart.plot)
+
+df_train$Delay <- factor(df_train$Delay)
+df_train$DayOfWeek <- factor(df_train$DayOfWeek)
+df_train$AirportTo <- factor(df_train$AirportTo)
+df_train$AirportFrom <- factor(df_train$AirportFrom)
+cart01 <- rpart(formula = Delay ~ Airline+Time+AirportFrom+DayOfWeek, data = df_train, method = "class")
+rpart.plot(cart01,type=4,extra=2)
+cart01$variable.importance
+
+df_test$Delay <- factor(df_test$Delay)
+df_test$DayOfWeek <- factor(df_test$DayOfWeek)
+df_train$AirportTo <- factor(df_train$AirportTo)
+df_train$Airportfrom <- factor(df_train$AirportFrom)
+
+X = data.frame(Airline=df_test$Airline,Time=df_test$Time,AirportFrom=df_test$AirportFrom,AirportTo=df_test$AirportTo,Length=df_test$Length,Flight=df_test$Flight,DayOfWeek=df_test$DayOfWeek)
+
+predDelayCART = predict(object = cart01, newdata = X,type = "class")
+t1=table(df_test$Delay, predDelayCART)
+t1
+accuracycart = (t1[1,1]+t1[2,2])/nrow(df_test)
+accuracycart
+Precissioncart = t1[1,1]/(t1[1,1]+t1[1,2])
+Precissioncart
+Recallcart = t1[1,1]/(t1[1,1]+t1[2,1])
+Recallcart
+F1Scorecart = 2*Precissioncart*Recallcart/(Precissioncart+Recallcart)
+F1Scorecart
+
+#C5
+library(C50)
+
+C5 <- C5.0(formula = Delay ~ Airline+Time+AirportFrom+DayOfWeek, data =df_train, control = C5.0Control(minCases=50))
+C5
+#plot(C5)
+predDelayC5=predict(object = C5, newdata = X)
+t2=table(df_test$Delay, predDelayC5)
+t2
+accuracyC5 = (t2[1,1]+t2[2,2])/nrow(df_test)
+accuracyC5
+PrecissionC5 = t2[1,1]/(t2[1,1]+t2[1,2])
+PrecissionC5
+RecallC5 = t2[1,1]/(t2[1,1]+t2[2,1])
+RecallC5
+F1ScoreC5 = 2*PrecissionC5*RecallC5/(PrecissionC5+RecallC5)
+F1ScoreC5
+
+#Randomforest
+library(randomForest)
+rf01 <- randomForest(formula = Delay ~ Airline+Time+AirportFrom+DayOfWeek, data =df_train, ntree = 100, type = 'classification')
+test.rf <- subset(x=df_train,select=c("Airline","AirportFrom","Time","DayOfWeek"))
+rf_pred <- predict(object = rf01, newdata = test.rf)
+rf_table <- table(df_train$Delay,rf_pred)
+row.names(rf_table) <- c("Ontime","Delayed")
+
+colnames (rf_table) <- c("Ontime","Delayed")
+rf_table <- addmargins(A = rf_table, FUN = list(Total = sum), quiet = TRUE)
+rf_table
+
+#install.packages("OneR")
+library(OneR)
+eval_model(df_train$Delay, rf_pred)
+
+#check for test data in Random forest
+rf02 <- randomForest(formula = Delay ~ Airline+Time+AirportFrom+DayOfWeek, data =df_test, ntree = 100,
+                     type = 'classification')
+test.rf2 <- subset(x=df_test,select=c("Airline","AirportFrom","Time","DayOfWeek"))
+rf_pred2 <- predict(object = rf02, newdata = test.rf2)
+rf_table2 <- table(df_test$Delay,rf_pred2)
+row.names(rf_table2) <- c("Ontime","Delayed")
+
+colnames (rf_table2) <- c("Ontime","Delayed")
+rf_table2 <- addmargins(A = rf_table2, FUN = list(Total = sum), quiet = TRUE)
+rf_table2
+
+eval_model(df_test$Delay, rf_pred2)
+
+#Naive bayes
+library(e1071)
+
+nb01 <- naiveBayes(formula = Delay ~ Airline+Time+AirportFrom+DayOfWeek, data =df_train)
+nb01  
+
+ypred <- predict(object=nb01,newdata=df_test)
+#Create contingency table of actual vs. predicted values
+t.preds <- table(df_test$Delay, ypred)
+rownames(t.preds) <- c("Actual: Ontime", "Actual: Delayed")
+colnames(t.preds) <- c("Predicted: Ontime", "Predicted: Delayed")
+addmargins(A = t.preds, FUN = list(Total = sum), quiet = TRUE)
+accuracyNB = (t.preds[1,1]+t.preds[2,2])/nrow(df_test)
+accuracyNB
+PrecissionNB = t.preds[1,1]/(t.preds[1,1]+t.preds[1,2])
+PrecissionNB
+RecallNB = t.preds[1,1]/(t.preds[1,1]+t.preds[2,1])
+RecallNB
+F1ScoreNB = 2*PrecissionNB*RecallNB/(PrecissionNB+RecallNB)
+F1ScoreNB
+
+#Neural Network
+df_train$Time.mm <- (df_train$Time - min(df_train$Time)) /(max(df_train$Time) - min(df_train$Time))
+library(nnet)
+library(NeuralNetTools)
+
+neunet_01 <- nnet(Delay ~ Airline+AirportFrom+DayOfWeek + Time.mm, data = df_train, size = 10)
+X_train <- subset(x=df_train, select =c("Time.mm", "Airline", "AirportFrom", "Delay","DayOfWeek"))
+ypred <- predict(object = neunet_01, newdata = X_train)
+ypred <- ifelse(ypred > 0.5, yes="Delayed", no="Ontime")
+plotnet(neunet_01)
+
+#Evaluate neural network
+df_test$Time.mm <- (df_test$Time - min(df_test$Time)) /(max(df_test$Time) - min(df_test$Time))
+X_test <- subset(x=df_test, select =c("Time.mm", "Airline", "AirportFrom", "Delay","DayOfWeek"))
+ypred <- predict(object = neunet_01, newdata = X_test)
+ypred <- ifelse(ypred > 0.5, yes="Ontime", no="Delayed")
+table1<-table(df_test$Delay, ypred)
+table1 <- addmargins(A=table1, FUN=list(Total=sum), quiet = TRUE)
+table1
+accuracyNN = (table1[1,1]+table1[2,2])/nrow(df_test)
+accuracyNN
+PrecissionNN = table1[1,1]/(table1[1,1]+table1[1,2])
+PrecissionNN
+RecallNN = table1[1,1]/(table1[1,1]+table1[2,1])
+RecallNN
+F1ScoreNN = 2*PrecissionNN*RecallNN/(PrecissionNN+RecallNN)
+F1ScoreNN
+
+
+
